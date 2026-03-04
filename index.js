@@ -99,7 +99,7 @@ async function sendTemplate(phone, name, expiry_date, type) {
 }
 
 // 🔁 CRON JOB
-cron.schedule("*/5 * * * *", async () => {
+cron.schedule("0 9 * * *", async () => {
   if (isRunning) return;
   isRunning = true;
 
