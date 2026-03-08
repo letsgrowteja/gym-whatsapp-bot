@@ -117,7 +117,7 @@ cron.schedule("0 1 * * *", async () => {
         let type = null;
         if (diffDays === 3) type = "before_expiry";
         else if (diffDays === 0) type = "today_expiry";
-        else if (diffDays < 0) type = "after_expiry";
+        else if (diffDays === -1) type = "after_expiry";
 
         if (!type) continue;
 
