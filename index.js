@@ -64,7 +64,13 @@ async function sendTemplate(phone, name, expiry_date, type) {
   if (!templateName) {
     throw new Error("Invalid template type");
   }
-
+  
+  console.log("📤 Sending template:");
+  console.log("📱 Phone:", phone);
+  console.log("👤 Name:", name);
+  console.log("📅 Expiry:", expiry_date);
+  console.log("📄 Template:", templateName);
+  
   return sendWithRetry(async () => {
     const res = await axios.post(
       `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
@@ -94,12 +100,21 @@ async function sendTemplate(phone, name, expiry_date, type) {
       }
     );
 
-    console.log("✅ WhatsApp Sent:");
+    console.log("📡 WhatsApp API Response:", JSON.stringify(res.data));
+
+    if (!res.data.messages) {
+      throw new Error("❌ WhatsApp did not accept message");
+    }
+
+    console.log("✅ Message ID:", res.data.messages[0].id);
+
+    return res.data;
+    
   });
 }
 
 // 🔁 CRON JOB
-cron.schedule("0 1 * * *", async () => {
+cron.schedule("0 2 * * *", async () => {
   if (isRunning) return;
   isRunning = true;
 
@@ -111,7 +126,9 @@ cron.schedule("0 1 * * *", async () => {
     for (let member of members || []) {
       try {
         const today = new Date();
+        today.setHours(0,0,0,0);
         const expiry = new Date(member.expiry_date);
+        expiry.setHours(0,0,0,0);
         const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
 
         let type = null;
@@ -180,15 +197,20 @@ cron.schedule("0 1 * * *", async () => {
 app.post("/send-message", async (req, res) => {
   try {
     const { phone, message } = req.body;
-
-    if (!phone || !message) {
-      return res.status(400).json({ error: "phone and message required" });
-    }
+    
+    console.log("📤 Chat send request");
+    console.log("📱 Phone:", phone);
+    console.log("💬 Message:", message);
+    
+    //if (!phone || !message) {
+      //return res.status(400).json({ error: "phone and message required" });
+    //}
 
     console.log("📤 Sending from chat:", phone, message);
 
     // 📡 SEND TO WHATSAPP
-    const response = await axios.post(
+    const response = await sendWithRetry(async () =>
+      axios.post(
       `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
       {
         messaging_product: "whatsapp",
@@ -204,7 +226,7 @@ app.post("/send-message", async (req, res) => {
       }
     );
 
-    console.log("✅ WhatsApp Sent:");
+    console.log("📡 WhatsApp Response:", JSON.stringify(response.data));
 
     // 💾 SAVE TO DB
     const { data: member } = await supabase
@@ -235,14 +257,18 @@ app.post("/send-message", async (req, res) => {
   }
 });
 
-// 📩 WEBHOOK (SAVE USER MSG)
 app.post("/webhook", async (req, res) => {
-  try {
-    const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    if (!msg) return res.sendStatus(200);
 
+  const change = req.body.entry?.[0]?.changes?.[0]?.value;
+
+  // USER MESSAGE
+  if (change?.messages) {
+
+    const msg = change.messages[0];
     const phone = msg.from;
     const text = msg.text?.body || "";
+
+    console.log("📩 User message:", phone, text);
 
     const { data: member } = await supabase
       .from("members")
@@ -260,16 +286,29 @@ app.post("/webhook", async (req, res) => {
       }
     ]);
 
-    res.sendStatus(200);
-  } catch {
-    res.sendStatus(500);
   }
-});
 
+  // DELIVERY STATUS
+  if (change?.statuses) {
+
+    const status = change.statuses[0];
+
+    console.log("📡 Message status:", status.status);
+
+    console.log("Message ID:", status.id);
+
+    // you can store this later if needed
+  }
+
+  res.sendStatus(200);
+
+});
 // 📤 MANUAL REMINDER (FRONTEND BUTTON)
 app.post("/send-reminder", async (req, res) => {
   try {
     const { member_id } = req.body;
+
+    console.log("📤 Manual reminder request:", member_id);
 
     const { data: member } = await supabase
       .from("members")
@@ -286,10 +325,12 @@ app.post("/send-reminder", async (req, res) => {
     let type = null;
     if (diffDays === 3) type = "before_expiry";
     else if (diffDays === 0) type = "today_expiry";
-    else if (diffDays < 0) type = "after_expiry";
+    else if (diffDays === -1 0) type = "after_expiry";
 
     if (!type) return res.json({ message: "No reminder needed" });
 
+    console.log("🚀 Manual reminder sending:", member.name, type);
+    
     // 🚫 DUPLICATE CHECK
     const now = new Date();
     const last = member.last_reminder_sent_at
@@ -326,7 +367,7 @@ app.post("/send-reminder", async (req, res) => {
     res.json({ success: true });
 
   } catch (err) {
-    console.log("❌ Manual Error:", err.message);
+    console.log("❌ Manual  reminder error:", err.message);
     res.status(500).json({ error: "Failed" });
   }
 });
@@ -340,12 +381,22 @@ app.get("/webhook", (req, res) => {
   const challenge = req.query["hub.challenge"];
 
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("Webhook verified");
+    console.log("✅ Webhook verified");
     res.status(200).send(challenge);
   } else {
     res.sendStatus(403);
   }
 });
+
+//Self ping 
+setInterval(async () => {
+  try {
+    await axios.get("https://your-render-url.onrender.com/");
+    console.log("🔁 Self ping");
+  } catch (e) {
+    console.log("Self ping failed");
+  }
+}, 10 * 60 * 1000);
 
 // 🚀 START
 const PORT = 5000;
