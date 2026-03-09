@@ -225,6 +225,7 @@ app.post("/send-message", async (req, res) => {
         },
       }
     );
+  });
 
     console.log("📡 WhatsApp Response:", JSON.stringify(response.data));
 
