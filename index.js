@@ -105,7 +105,7 @@ async function sendTemplate(phone, name, expiry_date, type) {
     if (!res.data.messages) {
       throw new Error("❌ WhatsApp did not accept message");
     }
-
+    
     console.log("✅ Message ID:", res.data.messages[0].id);
 
     return res.data;
@@ -227,7 +227,9 @@ app.post("/send-message", async (req, res) => {
     );
   });
 
-    console.log("📡 WhatsApp Response:", JSON.stringify(response.data));
+    if (response?.data) {
+      console.log("📡 WhatsApp Response:", JSON.stringify(response.data));
+     }
 
     // 💾 SAVE TO DB
     const { data: member } = await supabase
@@ -294,7 +296,11 @@ app.post("/webhook", async (req, res) => {
 
     const status = change.statuses[0];
 
-    console.log("📡 Message status:", status.status);
+    const msgStatus = status.status;
+
+    if (msgStatus === "sent" || msgStatus === "delivered" || msgStatus === "read") {
+      console.log("📡 Message status:", msgStatus);
+    }
 
     console.log("Message ID:", status.id);
 
@@ -400,7 +406,7 @@ setInterval(async () => {
 }, 10 * 60 * 1000);
 
 // 🚀 START
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
