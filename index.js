@@ -129,7 +129,7 @@ cron.schedule("0 2 * * *", async () => {
         today.setHours(0,0,0,0);
         const expiry = new Date(member.expiry_date);
         expiry.setHours(0,0,0,0);
-        const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor((expiry - today) / (1000 * 60 * 60 * 24));
 
         let type = null;
         if (diffDays === 3) type = "before_expiry";
@@ -321,12 +321,12 @@ app.post("/send-reminder", async (req, res) => {
 
     const today = new Date();
     const expiry = new Date(member.expiry_date);
-    const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor((expiry - today) / (1000 * 60 * 60 * 24));
 
     let type = null;
     if (diffDays === 3) type = "before_expiry";
     else if (diffDays === 0) type = "today_expiry";
-    else if (diffDays === -1 0) type = "after_expiry";
+    else if (diffDays === -1) type = "after_expiry";
 
     if (!type) return res.json({ message: "No reminder needed" });
 
@@ -392,7 +392,7 @@ app.get("/webhook", (req, res) => {
 //Self ping 
 setInterval(async () => {
   try {
-    await axios.get("https://your-render-url.onrender.com/");
+    await axios.get("https://gym-whatsapp-bot-9545.onrender.com");
     console.log("🔁 Self ping");
   } catch (e) {
     console.log("Self ping failed");
