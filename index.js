@@ -209,7 +209,7 @@ app.post("/send-message", async (req, res) => {
     console.log("📤 Sending from chat:", phone, message);
 
     // 📡 SEND TO WHATSAPP
-    const response = await sendWithRetry(async () =>
+    const response = await sendWithRetry(async () => {
       axios.post(
       `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
       {
